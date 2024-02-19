@@ -3,7 +3,6 @@ library("PerformanceAnalytics")
 f_calculate_returns <- function(y, method="log") {
   PerformanceAnalytics::CalculateReturns(y, method = method)[-1,]
 }
-
 f_forecast_var <- function(y, level) {
   ### Compute the VaR forecast of a GARCH(1,1) model with Normal errors at the desired risk level
   #  INPUTS
@@ -107,17 +106,29 @@ f_ht <- function(theta, y)  {
   sig2
 }
 
-f_load_data <- function(){
+f_load_data <- function() {
   load("indices.rda")
 }
 
+f_rolling_window_VaR <- function(returns, window_size = 100, level = 0.95) {
+  n <- length(returns)
+  VaR_forecasts <- rep(NA, window_size)
 
+  for (i in 1:window_size) {
+    window_returns <- returns[i:(i + window_size - 1)]
+    forecast <- f_forecast_var(window_returns, level)
+    VaR_forecasts[i] <- forecast$VaR_Forecast
+  }
 
+  return(VaR_forecasts)
+}
 
+library("qrmdata")
+data("SP500", package = "qrmdata")
 
+prices <- SP500["2003-01/2018-12"]
+returns <- f_calculate_returns(prices)[1:200]
 
+var_forecast <-f_rolling_window_VaR(returns)
 
-
-
-
-
+plot(var_forecast)
