@@ -1,3 +1,5 @@
+library("PerformanceAnalytics")
+
 f_calculate_returns <- function(y, method="log") {
   PerformanceAnalytics::CalculateReturns(y, method = method)[-1,]
 }
@@ -105,16 +107,17 @@ f_ht <- function(theta, y)  {
   sig2
 }
 
-library("qrmdata")
-library("PerformanceAnalytics")
-data("SP500", package = "qrmdata")
-library("rugarch")
-library("pracma")
+f_load_data <- function(){
+  load("indices.rda")
+}
 
-prices <- SP500["2008-01/2018-12"]
-log_returns <- f_calculate_returns(prices)
-var <- f_forecast_var(log_returns, 0.95)
 
-print(var$GARCH_param)
-print(var$VaR_Forecast)
+
+
+
+
+
+
+
+
 
