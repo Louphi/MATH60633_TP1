@@ -1,8 +1,4 @@
-library("PerformanceAnalytics")
 
-f_calculate_returns <- function(y, method="log") {
-  PerformanceAnalytics::CalculateReturns(y, method = method)[-1,]
-}
 f_forecast_var <- function(y, level) {
   ### Compute the VaR forecast of a GARCH(1,1) model with Normal errors at the desired risk level
   #  INPUTS
@@ -17,33 +13,35 @@ f_forecast_var <- function(y, level) {
   
   # Fit a GARCH(1,1) model with Normal errors
   # Starting values and bounds
+  
   theta0 <- c(0.1 * var(y), 0.1, 0.8)
-  LB     <- c(0, 0, 0)
+   ## !!! FIXME !!!
+  LB <- c(0 , 0 , 0)
+  ### 
+    
   # Stationarity condition
-  A      <- matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, -1), #UTILISER EPSILON
-                   nrow = 4,
-                   byrow = TRUE)
-  b <- c(LB, -1) #UTILISER EPSILON
+    
+    ### !!! FIXME !!!
+  A      <- c(0,-1,-1)
+  b      <- -1
+  ###
+  ## décomposer l égalité en 2 inégalités
   
   # Run the optimization
-  opt <- constrOptim(theta = theta0,
-                     f = f_nll,
-                     ui = A,
-                     ci = b,
-                     control = list(trace=0),
-                     y = y,
-                     grad=NULL)
-
-  # Get estimated parameters
-  theta <- opt$par
-
+  ## !!! FIXME !!! 
+  fit <- constrOptim(theta0, f = f_nll(theta0,y),grad = NULL, ui = matrix(c(A,1,0,0),nrow = 2, ncol = 3), ci = matrix(c(b,0),nrow = 2, ncol = 1), y = y)
+  theta <- fit$par 
+  
+  ###
+  
   # Recompute the conditional variance
   sig2 <- f_ht(theta, y)
-
+  
   # Compute the next-day ahead VaR for the Normal model
-  VaR <- qnorm((1-level),
-               mean =0,
-               sd = sqrt(tail(sig2, n=1)))
+   ## !!! FIXME !!! 
+  ### T+1 ???? 
+  VaR <- qnorm((1 - level)*sqrt(sig2[T + 1]))
+  ###  
   
   out <- list(VaR_Forecast = VaR, 
               ConditionalVariances = sig2, 
@@ -68,10 +66,11 @@ f_nll <- function(theta, y) {
   
   # Consider the T values
   sig2 <- sig2[1:T]
-
+  
   # Compute the loglikelihood
-  ll <- - (T - 1) / 2 - 1 / 2 * sum(log(sig2) + y^2 / sig2)
-
+   ## !!! FIXME !!! 
+  ll <- sum(log(1/sqrt(2*pi*var(sig2))) - (sig2[2:T] - (theta[1] + theta[2]*(y[1:T-1])^2 + theta[3] * sig2[1:T-1])))  
+  ###
   # Output the negative value
   nll <- -ll
   
@@ -100,35 +99,13 @@ f_ht <- function(theta, y)  {
   sig2[1] <- a0 / (1 - a1 - b1)
   
   # Compute conditional variance at each step
-  for (i in 1:T+1) {
-    sig2[i] <- a0 + a1 * y[i-1]^2 + b1 * sig2[i-1]
+  ### !!! FIXME !!!
+  
+  for (t in 2:T+1) {
+    sig2[t] <- a0 + a1 * y[t-1]^2 + b1 * sig2[t-1]
   }
+  ###
+  
   sig2
 }
 
-f_load_data <- function() {
-  load("indices.rda")
-}
-
-f_rolling_window_VaR <- function(returns, window_size = 100, level = 0.95) {
-  n <- length(returns)
-  VaR_forecasts <- rep(NA, window_size)
-
-  for (i in 1:window_size) {
-    window_returns <- returns[i:(i + window_size - 1)]
-    forecast <- f_forecast_var(window_returns, level)
-    VaR_forecasts[i] <- forecast$VaR_Forecast
-  }
-
-  return(VaR_forecasts)
-}
-
-library("qrmdata")
-data("SP500", package = "qrmdata")
-
-prices <- SP500["2003-01/2018-12"]
-returns <- f_calculate_returns(prices)[1:200]
-
-var_forecast <-f_rolling_window_VaR(returns)
-
-plot(var_forecast)
