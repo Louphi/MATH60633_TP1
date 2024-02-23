@@ -1,6 +1,11 @@
 library("PerformanceAnalytics")
 library("xts")
 
+f_load_data <- function() {
+  load("indices.rda")
+  prices
+}
+
 f_calculate_returns <- function(y, method="log") {
   PerformanceAnalytics::CalculateReturns(y, method = method)[-1,]
 }
@@ -33,7 +38,7 @@ f_forecast_var <- function(y, level) {
                      ui = A,
                      ci = b,
                      control = list(trace=0),
-                     y = y,
+                     y = as.vector(y),
                      grad=NULL)
 
   # Get estimated parameters
@@ -46,7 +51,8 @@ f_forecast_var <- function(y, level) {
   VaR <- qnorm((1-level),
                mean =0,
                sd = sqrt(tail(sig2, n=1)))
-  
+
+  # Store VaR forecast, cond. variance and GARCH Param's
   out <- list(VaR_Forecast = VaR, 
               ConditionalVariances = sig2, 
               GARCH_param = theta)
@@ -64,7 +70,7 @@ f_nll <- function(theta, y) {
   #   nll    : [scalar] negative log likelihood value
   
   T <- length(y)
-  
+
   # Compute the conditional variance of a GARCH(1,1) model
   sig2 <- f_ht(theta, y)
   
@@ -114,6 +120,9 @@ f_backtest_var_rolling <- function(y, window_size = 1000, forecast_steps = 1000,
   # Initialize a vector to store VaR predictions
   var_predictions <- numeric(forecast_steps)
 
+  # Initialize counter for the number of times actual returns < predicted VaR
+  var_violations <- 0
+
   # Loop through the time series data for the specified forecast steps
   for (i in 1:forecast_steps) {
     # Determine the start and end of the current window
@@ -130,41 +139,76 @@ f_backtest_var_rolling <- function(y, window_size = 1000, forecast_steps = 1000,
 
       # Store the forecasted VaR
       var_predictions[i] <- forecast_results$VaR_Forecast
+
+      # Check if the actual return is less than the forecasted VaR
+      if (y[end_index + 1] < forecast_results$VaR_Forecast) {
+        var_violations <- var_violations + 1
+      }
     } else {
       # Break the loop if the end index exceeds the time series length
       break
     }
   }
-
   # Return the VaR predictions
-  return(var_predictions)
+  list(VaR_Predictions = var_predictions, VaR_Violations = var_violations)
 }
 
 
-library("qrmdata")
-library("xts")
-data("SP500", package = "qrmdata")
-prices <- SP500["2005-01/2015-12"]
-returns <- f_calculate_returns(prices)[1:2000]
+setwd("C:/Users/gagne/PycharmProjects/MATH60633_TP1/TP1 - Phil")
 
-var <- f_ht(c(0.00001, 0.1, 0.8), returns)
-var <- xts(var[1:2000], order.by = index(returns))
-png("plot1.png", width=800, height=600)
-plot(returns, type="h")
-lines(sqrt(var), type="l", col="blue", lwd = 5)
+# Load price data
+prices <- f_load_data()
+prices <- prices["2005-01/"]
+prices_sp500 <- prices$SP500
+prices_ftse100 <- prices$FTSE100
+
+# Compute log returns
+rets_sp500 <- f_calculate_returns(prices_sp500)[1:2000]
+rets_ftse100 <- f_calculate_returns(prices_ftse100)[1:2000]
+
+# Compute VaR forecast for T+1
+VaR_sp500 <- f_forecast_var(rets_sp500[1:1000], 0.95)
+VaR_ftse100 <- f_forecast_var(rets_ftse100[1:1000], 0.95)
+
+VaR_sp500$VaR_Forecast
+VaR_ftse100$VaR_Forecast
+
+# Perform backtest for 1000 steps ahead on a 1000 observation window
+sp500_backtest <- f_backtest_var_rolling(rets_sp500)
+ftse100_backtest <- f_backtest_var_rolling(rets_ftse100)
+sp500_predictions <- xts(sp500_backtest$VaR_Predictions, order.by = index(rets_sp500)[1001:2000])
+ftse100_predictions <- xts(ftse100_backtest$VaR_Predictions, order.by = index(rets_ftse100)[1001:2000])
+
+# Print VaR violations
+sp500_backtest$VaR_Violations
+ftse100_backtest$VaR_Violations
+
+# Open a PNG device
+png("combined_plots.png", width = 800, height = 1200) # Adjust size as needed
+
+# Set up the plotting area to have 2 rows, 1 column
+par(mfrow = c(2, 1))
+
+# Plot for S&P 500: Using base R plotting functions
+# Convert xts objects to regular vectors for plotting
+plot(index(rets_sp500[1001:2000]), coredata(rets_sp500[1001:2000]), type = "h", lwd = 0.5, col = "blue",
+     main = "S&P 500 Returns and VaR Backtest", xlab = "Time", ylab = "Log Returns & VaR")
+# Adding VaR Backtest as lines
+lines(index(sp500_predictions), coredata(sp500_predictions), col = "red", lwd = 2)
+
+# Add legend
+legend("topright", legend = c("Log Returns", "VaR Backtest"), col = c("blue", "red"), lty = c(1, 1), cex = 0.8)
+
+# Plot for FTSE 100: Similar approach
+plot(index(rets_ftse100[1001:2000]), coredata(rets_ftse100[1001:2000]), type = "h", lwd = 0.5, col = "blue",
+     main = "FTSE 100 Returns and VaR Backtest", xlab = "Time", ylab = "Log Returns & VaR")
+lines(index(ftse100_predictions), coredata(ftse100_predictions), col = "red", lwd = 2)
+
+# Add legend
+legend("topright", legend = c("Log Returns", "VaR Backtest"), col = c("blue", "red"), lty = c(1, 1), cex = 0.8)
+
+# Close the PNG device
 dev.off()
-
-var <- f_backtest_var_rolling(returns)
-var <- xts(var, order.by = index(returns[1001:2000]))
-
-png("plot.png", width=800, height=600)
-plot(returns[1001:2000], type = "h")
-lines(var, type="l")
-dev.off()
-
-
-
-
 
 
 
