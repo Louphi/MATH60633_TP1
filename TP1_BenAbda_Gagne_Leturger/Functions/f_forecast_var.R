@@ -12,13 +12,21 @@ f_forecast_var <- function(y, level) {
   
   # Fit a GARCH(1,1) model with Normal errors
   # Starting values and bounds
-  theta0 <- c(0.1 * var(y), 0.1, 0.8)
-  LB     <- c(0, 0, 0)
+  epsilon_min <- 1e-30
+  
+  theta0 <- c(0.1 * var(y), 0.1, 0.8,1e-5)
+  LB     <- c(0,0,0,epsilon_min)
+  
   # Stationarity condition
-  A      <- matrix(c(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, -1), #UTILISER EPSILON
-                   nrow = 4,
+  A      <- matrix(c(1, 0, 0, 0,
+                     0, 1, 0, -1,
+                     0, 0, 1, -1,
+                     0, 0, 0, 1,
+                     0, -1, -1, -1), 
+                   nrow = 5,
                    byrow = TRUE)
-  b <- c(LB, -1) #UTILISER EPSILON
+  b <- c(LB, -1) 
+
   
   # Run the optimization
   opt <- constrOptim(theta = theta0,
@@ -66,7 +74,7 @@ f_nll <- function(theta, y) {
   sig2 <- sig2[1:T]
   
   # Compute the loglikelihood
-  ll <- - (T - 1) / 2 - 1 / 2 * sum(log(sig2) + y^2 / sig2)
+  ll <- sum(-(log(sqrt(2*pi*sig2))) - 0.5 * ((y - mean(y))^2/sig2))
   
   # Output the negative value
   nll <- -ll

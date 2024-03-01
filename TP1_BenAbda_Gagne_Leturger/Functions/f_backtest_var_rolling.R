@@ -11,7 +11,7 @@ f_backtest_var_rolling <- function(y, window_size = 1000, forecast_steps = 1000,
   
   # Initialize a vector to store VaR predictions for the forecast period
   var_predictions <- numeric(forecast_steps)
-  
+  Is_Violation <- numeric(forecast_steps)
   # Initialize a counter for the number of times actual returns fall below the predicted VaR (violations)
   var_violations <- 0
   
@@ -36,6 +36,7 @@ f_backtest_var_rolling <- function(y, window_size = 1000, forecast_steps = 1000,
       if (y[end_index + 1] < forecast_results$VaR_Forecast) {
         # Increment the violation counter if there's a violation
         var_violations <- var_violations + 1
+        Is_Violation[i] <- 1
       }
     } else {
       # Exit the loop if the end of the data series is reached
@@ -44,5 +45,5 @@ f_backtest_var_rolling <- function(y, window_size = 1000, forecast_steps = 1000,
   }
   
   # Return the predictions and the total number of violations as a list
-  list(VaR_Predictions = var_predictions, VaR_Violations = var_violations)
+  list(VaR_Predictions = var_predictions, VaR_Violations = var_violations, Is_Violation = Is_Violation)
 }
