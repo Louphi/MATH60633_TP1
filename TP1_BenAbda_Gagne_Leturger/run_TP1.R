@@ -66,6 +66,11 @@ sp500_predictions <- xts(sp500_backtest$VaR_Predictions,
                          order.by = index(rets_sp500)[1001:2000])
 ftse100_predictions <- xts(ftse100_backtest$VaR_Predictions, 
                            order.by = index(rets_ftse100)[1001:2000])
+# Assigner les valeurs moments de violations de la VaR
+sp500_is_violation <- xts(sp500_backtest$Is_Violation, 
+                          order.by = index(rets_sp500)[1001:2000])
+ftse100_is_violation <- xts(ftse100_backtest$Is_Violation, 
+                            order.by = index(rets_ftse100)[1001:2000])
 
 # Afficher le nombre des violations de la VaR
 sp500_backtest$VaR_Violations
@@ -78,8 +83,12 @@ f_plot_combined_returns_and_var("Output/combined_plots.png",
                                 rets_ftse100, 
                                 ftse100_predictions)
 
+# Merge les valeurs de violations de la VaR aux prédictions
+sp500_infos <- merge(sp500_predictions, sp500_is_violation, all = FALSE)
+ftse100_infos <- merge(ftse100_predictions, ftse100_is_violation, all = FALSE)
+
 # Enregistrer les résultats du backtest dans un fichier rda.
-Backtest_results <- merge(sp500_predictions, ftse100_predictions, all = FALSE)
+Backtest_results <- merge(sp500_infos, ftse100_infos, all = FALSE)
 save(Backtest_results, file = here("Data", "Clean Data", "Backtest_results.rda"))
 
 #**********************************************************************************************
